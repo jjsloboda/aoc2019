@@ -1,0 +1,6 @@
+[package]
+name = "wiregrid"
+version = "0.1.0"
+authors = ["Johnny Sloboda <sloboda@perpetualabs.com>"]
+
+[dependencies]
