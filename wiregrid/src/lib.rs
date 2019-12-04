@@ -73,7 +73,7 @@ mod tests {
     use super::{Wire, shortest_manhattan, shortest_wire_path};
 
     #[test]
-    fn given_examples_part_one() {
+    fn given_examples_manhattan() {
         assert_eq!(6, shortest_manhattan(
             &Wire::new("R8,U5,L5,D3"),
             &Wire::new("U7,R6,D4,L4")));
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn given_examples_part_two() {
+    fn given_examples_wire_path() {
         assert_eq!(30, shortest_wire_path(
             &Wire::new("R8,U5,L5,D3"),
             &Wire::new("U7,R6,D4,L4")));
