@@ -1,1 +1,1 @@
-/Users/jsloboda/Development/github.com/jjsloboda/aoc2019/venuscode/target/debug/venuscode: /Users/jsloboda/Development/github.com/jjsloboda/aoc2019/venuscode/src/lib.rs /Users/jsloboda/Development/github.com/jjsloboda/aoc2019/venuscode/src/main.rs
+/Users/sloboda/Development/advent_of_code/2019/01/venuscode/target/debug/venuscode: /Users/sloboda/Development/advent_of_code/2019/01/venuscode/src/lib.rs /Users/sloboda/Development/advent_of_code/2019/01/venuscode/src/main.rs
