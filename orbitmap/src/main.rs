@@ -21,4 +21,8 @@ fn main() {
     }
     let t = Tree::new(orbits);
     println!("DFS depth total: {}", t.dfs_depth_total());
+    println!("Min orbital transfers: {}", t.min_orbital_transfers(
+        &String::from("YOU"),
+        &String::from("SAN"),
+    ));
 }
