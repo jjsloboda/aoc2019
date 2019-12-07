@@ -10,6 +10,5 @@ fn main() {
         .map(|x| x.parse::<isize>().expect("failed to parse input"))
         .collect();
     let processor = InstructionSet::new_intcode();
-    println!("part one:");
     processor.execute(&mut mem);
 }

@@ -22,7 +22,7 @@ impl Parameter {
 struct Instruction {
     opcode: isize,
     num_params: usize,
-    exec_fn: fn(&mut Vec<isize>, &Vec<Parameter>),
+    exec_fn: fn(&mut Vec<isize>, &Vec<Parameter>) -> Option<usize>,
 }
 impl Instruction {
     fn get_params(&self, mem: &Vec<isize>, cursor: usize) -> Vec<Parameter> {
@@ -41,27 +41,32 @@ impl Instruction {
         }
         params
     }
-    pub fn execute(&self, mem: &mut Vec<isize>, cursor: usize) {
+    pub fn execute(&self, mem: &mut Vec<isize>, cursor: usize) -> usize {
         let params = self.get_params(mem, cursor);
-        (self.exec_fn)(mem, &params);
+        match (self.exec_fn)(mem, &params) {
+            Some(x) => x,
+            None => cursor + self.num_params + 1,
+        }
     }
 }
 
-fn input_int(mem: &mut Vec<isize>, params: &Vec<Parameter>) {
+fn input_int(mem: &mut Vec<isize>, params: &Vec<Parameter>) -> Option<usize> {
     print!("input: ");
     io::stdout().flush().unwrap();
     let mut input = String::new();
     io::stdin().read_line(&mut input).expect("stdin error");
     let input_num = input.trim().parse::<isize>().expect("parse fail");
     mem[params[0].value as usize] = input_num;
+    None
 }
 
-const INTCODE: [Instruction; 4] = [
+const INTCODE: [Instruction; 8] = [
     Instruction{
         opcode: 1,
         num_params: 3,
         exec_fn: |mem, params| {
             mem[params[2].value as usize] = params[0].val(&mem) + params[1].val(&mem);
+            None
         },
     },
     Instruction{
@@ -69,6 +74,7 @@ const INTCODE: [Instruction; 4] = [
         num_params: 3,
         exec_fn: |mem, params| {
             mem[params[2].value as usize] = params[0].val(&mem) * params[1].val(&mem);
+            None
         },
     },
     Instruction{
@@ -81,6 +87,47 @@ const INTCODE: [Instruction; 4] = [
         num_params: 1,
         exec_fn: |mem, params| {
             println!("output: {}", params[0].val(&mem));
+            None
+        },
+    },
+    Instruction{
+        opcode: 5,
+        num_params: 2,
+        exec_fn: |mem, params| {
+            if params[0].val(&mem) != 0 {
+                Some(params[1].val(&mem) as usize)
+            } else {
+                None
+            }
+        },
+    },
+    Instruction{
+        opcode: 6,
+        num_params: 2,
+        exec_fn: |mem, params| {
+            if params[0].val(&mem) == 0 {
+                Some(params[1].val(&mem) as usize)
+            } else {
+                None
+            }
+        },
+    },
+    Instruction{
+        opcode: 7,
+        num_params: 3,
+        exec_fn: |mem, params| {
+            mem[params[2].value as usize] =
+                if params[0].val(&mem) < params[1].val(&mem) { 1 } else { 0 };
+            None
+        },
+    },
+    Instruction{
+        opcode: 8,
+        num_params: 3,
+        exec_fn: |mem, params| {
+            mem[params[2].value as usize] =
+                if params[0].val(&mem) == params[1].val(&mem) { 1 } else { 0 };
+            None
         },
     },
 ];
@@ -110,8 +157,7 @@ impl InstructionSet {
                 return mem[0];
             }
             let inst = self.insts.get(&opcode).expect("instruction not found");
-            inst.execute(mem, cursor);
-            cursor += inst.num_params + 1
+            cursor = inst.execute(mem, cursor);
         }
     }
 }
