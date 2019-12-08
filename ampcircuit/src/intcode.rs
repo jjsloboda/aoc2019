@@ -104,7 +104,7 @@ const INTCODE: [Instruction; 8] = [
         num_params: 1,
         exec_fn: |res, params| {
             let input = res.read_input();
-            res.write_mem(params[0].val(&res), input);
+            res.write_mem(params[0].value, input);
             None
         },
     },
