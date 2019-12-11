@@ -1,6 +1,17 @@
 use std::collections::{HashMap, VecDeque};
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Status {
+    READY,
+    RUNNING,
+    SUSPENDED,
+    TERMINATED,
+}
+
+#[derive(Clone)]
 pub struct Resources {
+    cursor: usize,
+    status: Status,
     mem: Vec<isize>,
     input: VecDeque<isize>,
     output: VecDeque<isize>,
@@ -8,13 +19,36 @@ pub struct Resources {
 impl Resources {
     pub fn new(mem: Vec<isize>) -> Resources {
         Resources{
+            cursor: 0,
+            status: Status::READY,
             mem: mem,
             input: VecDeque::new(),
             output: VecDeque::new(),
         }
     }
-    pub fn read_input(&mut self) -> isize{
-        self.input.pop_front().expect("input underflow")
+    pub fn get_status(&self) -> Status {
+        self.status
+    }
+    pub fn set_status(&mut self, status: Status) {
+        self.status = status;
+    }
+    pub fn set_cursor(&mut self, loc: isize) {
+        self.cursor = loc as usize;
+    }
+    pub fn inc_cursor(&mut self, offset: isize) {
+        self.cursor += offset as usize;
+    }
+    pub fn read_mem_offset(&self, offset: isize) -> isize {
+        self.mem[self.cursor + offset as usize]
+    }
+    pub fn read_input(&mut self) -> isize {
+        match self.input.pop_front() {
+            Some(x) => x,
+            None => {
+                self.set_status(Status::SUSPENDED);
+                0
+            },
+        }
     }
     pub fn write_input(&mut self, i: isize) {
         self.input.push_back(i);
@@ -57,12 +91,12 @@ struct Instruction {
     exec_fn: fn(&mut Resources, &Vec<Parameter>) -> Option<isize>,
 }
 impl Instruction {
-    fn get_params(&self, res: &Resources, cursor: isize) -> Vec<Parameter> {
+    fn get_params(&self, res: &Resources) -> Vec<Parameter> {
         let mut params: Vec<Parameter> = Vec::new();
-        let mut modes = res.read_mem(cursor) / 100;
+        let mut modes = res.read_mem_offset(0) / 100;
         for i in 1..=self.num_params {
             params.push(Parameter{
-                value: res.read_mem(cursor+i),
+                value: res.read_mem_offset(i),
                 mode: match modes & 0x1 {
                     0 => Mode::POSITION,
                     1 => Mode::IMMEDIATE,
@@ -73,16 +107,19 @@ impl Instruction {
         }
         params
     }
-    pub fn execute(&self, res: &mut Resources, cursor: isize) -> isize {
-        let params = self.get_params(res, cursor);
-        match (self.exec_fn)(res, &params) {
-            Some(x) => x,
-            None => cursor + self.num_params + 1,
+    pub fn execute(&self, res: &mut Resources) {
+        let params = self.get_params(res);
+        let loc = (self.exec_fn)(res, &params);
+        if res.get_status() == Status::RUNNING {
+            match loc {
+                Some(x) => res.set_cursor(x),
+                None => res.inc_cursor(self.num_params + 1),
+            }
         }
     }
 }
 
-const INTCODE: [Instruction; 8] = [
+const INTCODE: [Instruction; 9] = [
     Instruction{
         opcode: 1,
         num_params: 3,
@@ -157,6 +194,14 @@ const INTCODE: [Instruction; 8] = [
             None
         },
     },
+    Instruction{
+        opcode: 99,
+        num_params: 0,
+        exec_fn: |res, _| {
+            res.set_status(Status::TERMINATED);
+            None
+        },
+    },
 ];
 
 pub struct Processor {
@@ -175,16 +220,28 @@ impl Processor {
         Self::new(&INTCODE)
     }
 
-    pub fn execute(&self, res: &mut Resources) -> isize {
-        let mut cursor = 0;
-        loop {
-            let opcode = res.read_mem(cursor) % 100;
-            if opcode == 99 {
-                return res.read_mem(0);
-            }
-            let inst = self.insts.get(&opcode).expect("instruction not found");
-            cursor = inst.execute(res, cursor);
+    fn run(&self, res: &mut Resources) {
+        res.set_status(Status::RUNNING);
+        while res.get_status() == Status::RUNNING {
+            let opcode = res.read_mem_offset(0) % 100;
+            let inst = self.insts.get(&opcode)
+                .expect("instruction not found");
+            inst.execute(res);
         }
+    }
+
+    pub fn execute(&self, res: &mut Resources) -> isize {
+        if res.get_status() == Status::READY {
+            self.run(res)
+        }
+        res.read_mem(0)
+    }
+
+    pub fn resume(&self, res: &mut Resources) -> isize {
+        if res.get_status() == Status::SUSPENDED {
+            self.run(res)
+        }
+        res.read_mem(0)
     }
 }
 
