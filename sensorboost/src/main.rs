@@ -10,8 +10,14 @@ fn main() {
         .map(|x| x.parse::<isize>().expect("failed to parse input"))
         .collect();
     let processor = Processor::new_intcode();
-    let mut res = Resources::new(mem);
+
+    let mut res = Resources::new(mem.clone());
     res.write_input(1);
     processor.execute(&mut res);
     println!("boost code: {}", res.read_output());
+
+    let mut res2 = Resources::new(mem);
+    res2.write_input(2);
+    processor.execute(&mut res2);
+    println!("distress signal coords: {}", res2.read_output());
 }
