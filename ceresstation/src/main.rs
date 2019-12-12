@@ -1,13 +1,16 @@
 use std::fs::File;
 use std::io;
-use std::io::{BufReader, BufRead};
+use std::io::BufReader;
 
-use ceresstation::Point;
+use ceresstation::{points_from_data, max_asteriod_visibility};
 
 fn main() -> io::Result<()> {
     let file = File::open("input.txt")?;
-    let mut reader = BufReader::new(file);
+    let reader = BufReader::new(file);
 
-    for line in reader.lines() {
-    }
+    let asteriods = points_from_data(reader);
+
+    println!("max visible asteriods: {}", max_asteriod_visibility(&asteriods));
+
+    Ok(())
 }
