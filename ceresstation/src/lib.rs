@@ -1,3 +1,4 @@
+use std::f64;
 use std::io::BufRead;
 
 use num::integer::gcd;
@@ -17,6 +18,9 @@ impl Point {
         let orig_y = p.y - origin.y;
         let d = gcd(orig_x, orig_y);
         Point{ x: orig_x / d, y: orig_y / d }
+    }
+    pub fn angle(&self) -> f64 {
+        0_f64
     }
 }
 
@@ -48,6 +52,10 @@ pub fn max_asteriod_visibility(asteriods: &Vec<Point>) -> i32 {
         .map(|x| x.into_iter().unique().count() as i32)
         .max()
         .expect("no visibility")
+}
+
+pub fn laser_order_index(asteriods: &Vec<Point>, index: usize) -> i32 {
+    // TODO sort by slope vector
 }
 
 #[cfg(test)]
