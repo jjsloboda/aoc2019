@@ -1,13 +1,14 @@
 use std::collections::HashMap;
+use std::fmt;
 
 mod intcode;
 use intcode::{Processor, Resources};
 
 type Color = isize;
-const BLACK: Color = 0;
-const WHITE: Color = 1;
+pub const BLACK: Color = 0;
+pub const WHITE: Color = 1;
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
 pub struct Point {
     x: i32,
     y: i32,
@@ -37,10 +38,19 @@ impl Hull {
     fn tile_at_loc(&mut self, pt: &Point) -> &mut Tile {
         self.tiles.entry(*pt).or_insert(Tile::new())
     }
-    pub fn color_at_loc(&mut self, pt: &Point) -> Color {
+    pub fn color_at_loc(&self, pt: &Point) -> Color {
+        match self.tiles.get(pt) {
+            Some(tile) => tile.c,
+            None => BLACK,
+        }
+    }
+    pub fn color_at_loc_mut(&mut self, pt: &Point) -> Color {
         self.tile_at_loc(pt).c
     }
-    pub fn update_color_at_loc(&mut self, pt: &Point, c: Color) {
+    pub fn set_color_at_loc(&mut self, pt: &Point, c: Color) {
+        self.tile_at_loc(pt).c = c;
+    }
+    pub fn update_painted_color_at_loc(&mut self, pt: &Point, c: Color) {
         let mut tile = self.tile_at_loc(pt);
         tile.c = c;
         tile.painted = true;
@@ -49,6 +59,27 @@ impl Hull {
         self.tiles.values()
             .map(|t| if t.painted { 1 } else { 0 })
             .sum()
+    }
+    pub fn num_white_tiles(&self) -> i32 {
+        self.tiles.values()
+            .map(|t| if t.c == WHITE { 1 } else { 0 })
+            .sum()
+    }
+}
+impl fmt::Display for Hull {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Assumes only positive coordinates
+        for col in (-10..10).rev() {
+            for row in -10..60 {
+                if WHITE == self.color_at_loc(&Point::new(row, col)) {
+                    write!(f, "#")?;
+                } else {
+                    write!(f, ".")?;
+                }
+            }
+            write!(f, "\n")?;
+        }
+        Ok(())
     }
 }
 
@@ -124,10 +155,10 @@ pub fn paint_hull_with_robot(hull: &mut Hull, robot: &mut Robot) {
     loop {
         let initial_loc = robot.loc;
         let color_painted = robot.paint_panel_move_on(
-            hull.color_at_loc(&robot.loc));
+            hull.color_at_loc_mut(&robot.loc));
         match color_painted {
             Some(c) => {
-                hull.update_color_at_loc(&initial_loc, c);
+                hull.update_painted_color_at_loc(&initial_loc, c);
             },
             None => break,
         }
@@ -168,11 +199,11 @@ mod tests {
     fn hull_works() {
         use super::{Hull, Point, BLACK, WHITE};
         let mut hull = Hull::new();
-        assert_eq!(BLACK, hull.color_at_loc(&Point::new(3, 4)));
-        hull.update_color_at_loc(&Point::new(3, 4), WHITE);
-        assert_eq!(WHITE, hull.color_at_loc(&Point::new(3, 4)));
-        hull.update_color_at_loc(&Point::new(3, 1), BLACK);
-        assert_eq!(BLACK, hull.color_at_loc(&Point::new(3, 1)));
+        assert_eq!(BLACK, hull.color_at_loc_mut(&Point::new(3, 4)));
+        hull.update_painted_color_at_loc(&Point::new(3, 4), WHITE);
+        assert_eq!(WHITE, hull.color_at_loc_mut(&Point::new(3, 4)));
+        hull.update_painted_color_at_loc(&Point::new(3, 1), BLACK);
+        assert_eq!(BLACK, hull.color_at_loc_mut(&Point::new(3, 1)));
         assert_eq!(2, hull.num_tiles_painted());
     }
 
@@ -183,7 +214,7 @@ mod tests {
             vec![3,100,4,100,4,101,3,100,4,100,4,101,99]);
         let mut hull = Hull::new();
         paint_hull_with_robot(&mut hull, &mut robot);
-        assert_eq!(BLACK, hull.color_at_loc(&Point::new(0, 0)));
+        assert_eq!(BLACK, hull.color_at_loc_mut(&Point::new(0, 0)));
         assert_eq!(2, hull.num_tiles_painted());
     }
 }
