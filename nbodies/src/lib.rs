@@ -61,6 +61,9 @@ impl Body {
         let kinetic = self.vel.x.abs() + self.vel.y.abs() + self.vel.z.abs();
         potential * kinetic
     }
+    pub fn pos(&self) -> &Point {
+        &self.pos
+    }
 }
 impl fmt::Display for Body {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -75,6 +78,9 @@ pub struct System {
 impl System {
     pub fn new(bodies: Vec<Body>) -> Self {
         System{ bodies: bodies }
+    }
+    pub fn body(&self, i: usize) -> &Body {
+        &self.bodies[i]
     }
     pub fn step_forward(&mut self) {
         // apply gravity
@@ -93,6 +99,12 @@ impl System {
     }
     pub fn energy(&self) -> i32 {
         self.bodies.iter().map(|x| x.energy()).sum()
+    }
+    pub fn pos_by_dim(&self) -> (Vec<(i32, i32)>, Vec<(i32, i32)>, Vec<(i32, i32)>) {
+        let xs: Vec<_> = self.bodies.iter().map(|b| (b.pos.x, b.vel.x)).collect();
+        let ys: Vec<_> = self.bodies.iter().map(|b| (b.pos.y, b.vel.y)).collect();
+        let zs: Vec<_> = self.bodies.iter().map(|b| (b.pos.z, b.vel.z)).collect();
+        (xs, ys, zs)
     }
 }
 impl fmt::Display for System {
