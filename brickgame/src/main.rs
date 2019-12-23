@@ -16,31 +16,27 @@ fn main() -> io::Result<()> {
     println!("num initial block tiles: {}", arcade.num_block_tiles());
 
     // Part 2
-    let mut move_num = 0;
     let g = Getch::new();
     mem[0] = 2;
     let mut arcade = Arcade::new(mem);
-    let mut save = arcade.save();
     arcade.start();
     while !arcade.is_ended() {
         println!("{}", arcade);
         let ch = char::from_u32(g.getch()? as u32).expect("bad getch");
-        move_num += 1;
         if ch == 'r' {
-            arcade.load(&save);
+            arcade.load();
         } else {
-            let js = match ch {
-                'j' => -1,
-                'k' => 0,
-                'l' => 1,
-                _ => panic!("bad input"),
+            match ch {
+                'j' => arcade.joystick_input(-1),
+                'k' => arcade.joystick_input(0),
+                'l' => arcade.joystick_input(1),
+                's' => arcade.save(),
+                'r' => arcade.load(),
+                _ => {},
             };
-            arcade.joystick_input(js);
-            if move_num % 100 == 0 {
-                save = arcade.save();
-            }
         }
     }
+    println!("Final score: {}", arcade.score());
 
     Ok(())
 }

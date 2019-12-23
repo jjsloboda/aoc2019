@@ -38,19 +38,16 @@ impl fmt::Display for Tile {
 
 const DIM_X: usize = 50;
 const DIM_Y: usize = 30;
+#[derive(Clone)]
 struct Screen {
     tiles: [[Tile; DIM_X]; DIM_Y],
     score: isize,
-    ball_col: isize,
-    paddle_col: isize,
 }
 impl Screen {
     pub fn new() -> Self {
         Screen{
             tiles: [[Tile::EMPTY; DIM_X]; DIM_Y],
             score: 0,
-            ball_col: 0,
-            paddle_col: 0,
         }
     }
     pub fn set_tile(&mut self, x: isize, y: isize, t: isize) {
@@ -60,20 +57,11 @@ impl Screen {
             let (xp, yp) = (x as usize, y as usize);
             let tile = Tile::new(t);
             self.tiles[yp][xp] = tile;
-            if tile == Tile::PADDLE {
-                self.paddle_col = x;
-            }
-            if tile == Tile::BALL {
-                self.ball_col = x;
-            }
         }
     }
     pub fn num_block_tiles(&self) -> i32 {
         self.tiles.iter().map(
             |row| row.iter().filter(|t| **t == Tile::BLOCK).count()).sum::<usize>() as i32
-    }
-    pub fn ball_paddle_diff(&self) -> isize {
-        self.paddle_col - self.ball_col
     }
 }
 impl fmt::Display for Screen {
@@ -93,6 +81,7 @@ pub struct Arcade {
     proc: Processor,
     res: Resources,
     screen: Screen,
+    save: Option<(Resources, Screen)>,
 }
 impl Arcade {
     pub fn new(mem: Vec<isize>) -> Self {
@@ -100,6 +89,7 @@ impl Arcade {
             proc: Processor::new_intcode(),
             res: Resources::new(mem),
             screen: Screen::new(),
+            save: None,
         }
     }
     fn draw_output_to_screen(&mut self) {
@@ -134,11 +124,17 @@ impl Arcade {
     pub fn num_block_tiles(&self) -> i32 {
         self.screen.num_block_tiles()
     }
-    pub fn save(&self) -> Vec<isize> {
-        self.res.dump_mem()
+    pub fn save(&mut self) {
+        self.save = Some((self.res.clone(), self.screen.clone()))
     }
-    pub fn load(&mut self, mem: &Vec<isize>) {
-        self.res.load_mem(mem);
+    pub fn load(&mut self) {
+        if let Some(save) = self.save.clone() {
+            self.res = save.0;
+            self.screen = save.1;
+        }
+    }
+    pub fn score(&self) -> isize {
+        self.res.read_mem(386)
     }
 }
 impl fmt::Display for Arcade {
