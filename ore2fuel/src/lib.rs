@@ -4,15 +4,15 @@ use std::io::BufRead;
 #[derive(Clone, Debug)]
 pub struct ChemQty {
     name: String,
-    qty: u32,
+    qty: u64,
 }
 impl ChemQty {
-    pub fn new(name: &str, qty: u32) -> Self {
+    pub fn new(name: &str, qty: u64) -> Self {
         ChemQty{ name: name.to_string(), qty: qty, }
     }
     pub fn from(raw: &str) -> Self {
         let mut itr = raw.trim().splitn(2, ' ');
-        let qty = itr.next().expect("input fail").parse::<u32>().expect("parse fail");
+        let qty = itr.next().expect("input fail").parse::<u64>().expect("parse fail");
         let name = itr.next().expect("input fail");
         ChemQty::new(name, qty)
     }
@@ -51,7 +51,7 @@ fn make_rxn_map(rxns: &Vec<Rxn>) -> HashMap<String, Rxn> {
     rm
 }
 
-fn calculate_chem_degree(chem: &String, rxn_map: &HashMap<String, Rxn>) -> u32 {
+fn calculate_chem_degree(chem: &String, rxn_map: &HashMap<String, Rxn>) -> u64 {
     if *chem == "ORE" {
         0
     } else {
@@ -70,7 +70,7 @@ fn make_rxn_order(rxn_map: &HashMap<String, Rxn>) -> Vec<String> {
     chems_w_degree.iter().map(|(n, _)| n.clone()).collect()
 }
 
-pub fn min_ore_qty_for_fuel(rxns: &Vec<Rxn>) -> u32 {
+pub fn min_ore_qty_for_fuel(fuel_qty: u64, rxns: &Vec<Rxn>) -> u64 {
     const ORE: &str = "ORE";
     const FUEL: &str = "FUEL";
 
@@ -78,14 +78,14 @@ pub fn min_ore_qty_for_fuel(rxns: &Vec<Rxn>) -> u32 {
 
     let mut rxn_order = make_rxn_order(&rxn_map);
     let mut chem_map = HashMap::new();
-    chem_map.insert(String::from(FUEL), 1);
+    chem_map.insert(String::from(FUEL), fuel_qty);
     while !rxn_order.is_empty() {
         if let Some(chemname) = rxn_order.pop() {
             if chemname != ORE {
                 let rxn = rxn_map.get(&chemname).expect("no rxn found");
                 let chemqty = *chem_map.get(&chemname).unwrap_or(&0);
                 let qty_multiplier =
-                    (chemqty as f32 / rxn.product.qty as f32).ceil() as u32;
+                    (chemqty as f32 / rxn.product.qty as f32).ceil() as u64;
                 *chem_map.get_mut(&chemname).expect("no chem fnd") = 0;
                 for ch in &rxn_map.get(&chemname).expect("no rxn found").reactants {
                     *chem_map.entry(ch.name.clone()).or_insert(0) += ch.qty * qty_multiplier;
@@ -96,9 +96,21 @@ pub fn min_ore_qty_for_fuel(rxns: &Vec<Rxn>) -> u32 {
     *chem_map.get(ORE).expect("no ore")
 }
 
+pub fn max_fuel_qty_for_ore(ore_available: u64, rxns: &Vec<Rxn>) -> u64 {
+    let ore_for_one_fuel = min_ore_qty_for_fuel(1, rxns);
+    let mut fuel_qty = ore_available / ore_for_one_fuel;
+    let mut ore_qty = fuel_qty * ore_for_one_fuel;
+    // Could binary search here to tighten bounds
+    while ore_qty < ore_available {
+        fuel_qty += 1;
+        ore_qty = min_ore_qty_for_fuel(fuel_qty, rxns);
+    }
+    fuel_qty - 1
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ChemQty, Rxn};
+    use super::{ChemQty, Rxn, load_rxns};
 
     #[test]
     fn check_parse_rxn() {
@@ -128,7 +140,7 @@ mod tests {
         assert_eq!(7, rxn3.reactants.len());
     }
 
-    fn cq(s: &str, q: u32) -> ChemQty {
+    fn cq(s: &str, q: u64) -> ChemQty {
         ChemQty::new(s, q)
     }
     fn rn(p: ChemQty, r: Vec<ChemQty>) -> Rxn {
@@ -147,12 +159,12 @@ mod tests {
             rn(cq("CA", 1), vec![cq("C", 4), cq("A", 1)]),
             rn(cq("FUEL", 1), vec![cq("AB", 2), cq("BC", 3), cq("CA", 4)]),
         ];
-        assert_eq!(165, min_ore_qty_for_fuel(&rxns));
+        assert_eq!(165, min_ore_qty_for_fuel(1, &rxns));
     }
 
     #[test]
     fn min_ore_for_fuel_ex_2() {
-        use super::min_ore_qty_for_fuel;
+        use super::{min_ore_qty_for_fuel, max_fuel_qty_for_ore};
         let rxns = vec![
             rn(cq("NZVS", 5), vec![cq("ORE", 157)]),
             rn(cq("DCFZ", 6), vec![cq("ORE", 165)]),
@@ -173,12 +185,13 @@ mod tests {
                 cq("DCFZ", 3), cq("NZVS", 7), cq("HKGWZ", 5), cq("PSHF", 10),
             ]),
         ];
-        assert_eq!(13312, min_ore_qty_for_fuel(&rxns));
+        assert_eq!(13312, min_ore_qty_for_fuel(1, &rxns));
+        //assert_eq!(82892753, max_fuel_qty_for_ore(1_000_000_000_000, &rxns));
     }
 
     #[test]
     fn check_overall_ex_3() {
-        use super::{load_rxns, min_ore_qty_for_fuel};
+        use super::{min_ore_qty_for_fuel, max_fuel_qty_for_ore};
         const EX3: &[u8] =
             b"2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG\n\
               17 NVRVD, 3 JNWZP => 8 VPVL\n\
@@ -192,12 +205,14 @@ mod tests {
               1 NVRVD => 8 CXFTF\n\
               1 VJHF, 6 MNCFX => 4 RFSQX\n\
               176 ORE => 6 VJHF" as &[u8];
-        assert_eq!(180697, min_ore_qty_for_fuel(&load_rxns(EX3)));
+        let rxns = load_rxns(EX3);
+        assert_eq!(180697, min_ore_qty_for_fuel(1, &rxns));
+        assert_eq!(5586022, max_fuel_qty_for_ore(1_000_000_000_000, &rxns));
     }
 
     #[test]
     fn check_overall_ex_4() {
-        use super::{load_rxns, min_ore_qty_for_fuel};
+        use super::{min_ore_qty_for_fuel, max_fuel_qty_for_ore};
         const EX4: &[u8] =
             b"171 ORE => 8 CNZTR\n\
               7 ZLQW, 3 BMBT, 9 XCVML, 26 XMNCP, 1 WPTQ, 2 MZWV, 1 RJRHP => 4 PLWSL\n\
@@ -216,6 +231,8 @@ mod tests {
               121 ORE => 7 VRPVC\n\
               7 XCVML => 6 RJRHP\n\
               5 BHXH, 4 VRPVC => 5 LTCX" as &[u8];
-        assert_eq!(2210736, min_ore_qty_for_fuel(&load_rxns(EX4)));
+        let rxns = load_rxns(EX4);
+        assert_eq!(2210736, min_ore_qty_for_fuel(1, &rxns));
+        assert_eq!(460664, max_fuel_qty_for_ore(1_000_000_000_000, &rxns));
     }
 }
