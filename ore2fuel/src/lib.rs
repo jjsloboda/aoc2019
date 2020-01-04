@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::io::BufRead;
 
 #[derive(Clone, Debug)]
@@ -44,11 +44,30 @@ pub fn load_rxns<R: BufRead>(rxn_lines: R) -> Vec<Rxn> {
 }
 
 fn make_rxn_map(rxns: &Vec<Rxn>) -> HashMap<String, Rxn> {
-    let mut hm = HashMap::new();
+    let mut rm = HashMap::new();
     for r in rxns {
-        hm.insert(r.product.name.clone(), r.clone());
+        rm.insert(r.product.name.clone(), r.clone());
     }
-    hm
+    rm
+}
+
+fn calculate_chem_degree(chem: &String, rxn_map: &HashMap<String, Rxn>) -> u32 {
+    if *chem == "ORE" {
+        0
+    } else {
+        1 + rxn_map.get(chem).expect("no rxn found")
+            .reactants.iter()
+            .map(|chqty| calculate_chem_degree(&chqty.name, rxn_map))
+            .max().expect("no max")
+    }
+}
+
+fn make_rxn_order(rxn_map: &HashMap<String, Rxn>) -> Vec<String> {
+    let mut chems_w_degree = rxn_map.keys()
+        .map(|k| (k.clone(), calculate_chem_degree(k, rxn_map)))
+        .collect::<Vec<_>>();
+    chems_w_degree.sort_by(|a, b| a.1.cmp(&b.1));
+    chems_w_degree.iter().map(|(n, _)| n.clone()).collect()
 }
 
 pub fn min_ore_qty_for_fuel(rxns: &Vec<Rxn>) -> u32 {
@@ -57,20 +76,18 @@ pub fn min_ore_qty_for_fuel(rxns: &Vec<Rxn>) -> u32 {
 
     let rxn_map = make_rxn_map(rxns);
 
-    let mut rxn_queue = VecDeque::new();
+    let mut rxn_order = make_rxn_order(&rxn_map);
     let mut chem_map = HashMap::new();
     chem_map.insert(String::from(FUEL), 1);
-    rxn_queue.push_back(ChemQty::new(FUEL, 1));
-    while !rxn_queue.is_empty() {
-        println!("rxn_queu: {:?}", rxn_queue);
-        if let Some(chem) = rxn_queue.pop_front() {
-            if chem.name != ORE {
-                let rxn = rxn_map.get(&chem.name).expect("no rxn found");
+    while !rxn_order.is_empty() {
+        if let Some(chemname) = rxn_order.pop() {
+            if chemname != ORE {
+                let rxn = rxn_map.get(&chemname).expect("no rxn found");
+                let chemqty = *chem_map.get(&chemname).unwrap_or(&0);
                 let qty_multiplier =
-                    (chem.qty as f32 / rxn.product.qty as f32).ceil() as u32;
-                *chem_map.get_mut(&chem.name).expect("no chem fnd") = 0;
-                for ch in &rxn_map.get(&chem.name).expect("no rxn found").reactants {
-                    rxn_queue.push_back(ch.clone());
+                    (chemqty as f32 / rxn.product.qty as f32).ceil() as u32;
+                *chem_map.get_mut(&chemname).expect("no chem fnd") = 0;
+                for ch in &rxn_map.get(&chemname).expect("no rxn found").reactants {
                     *chem_map.entry(ch.name.clone()).or_insert(0) += ch.qty * qty_multiplier;
                 }
             }
@@ -78,65 +95,6 @@ pub fn min_ore_qty_for_fuel(rxns: &Vec<Rxn>) -> u32 {
     }
     *chem_map.get(ORE).expect("no ore")
 }
-
-/*
-use std::collections::BTreeMap;
-
-#[derive(Eq, PartialEq)]
-struct ChemSet {
-    chems: BTreeMap<String, i32>,
-}
-impl ChemSet {
-    pub fn new(chems: BTreeMap<String, i32>) -> Self {
-        ChemSet{ chems: chems, }
-    }
-    pub fn can_react(&self, rxn: &Rxn) -> bool {
-        for (chem, amt) in rxn.inputs.chems.iter() {
-            let self_amt = match self.chems.get(chem) {
-                Some(x) => *x,
-                None => 0,
-            };
-            if *amt > self_amt {
-                return false;
-            }
-        }
-        true
-    }
-    pub fn react(&mut self, rxn: &Rxn) {
-        if !self.can_react(rxn) {
-            panic!("cannot react");
-        }
-        for (chem, amt) in rxn.inputs.chems.iter() {
-            if let Some(self_amt) = self.chems.get_mut(chem) {
-                *self_amt -= *amt;
-            }
-        }
-        for (chem, amt) in rxn.outputs.chems.iter() {
-            *self.chems.entry(chem.to_string()).or_insert(0) += *amt;
-        }
-    }
-    pub fn to_string(&self) -> String {
-        // TODO
-        //self.chems.iter().map(|(chem, amt)| 
-    }
-}
-
-struct Rxn {
-    inputs: ChemSet,
-    outputs: ChemSet,
-}
-impl Rxn {
-    pub fn from_string(s: &str) -> Self {
-        let mut inputs = BTreeMap::new();
-        let mut outputs = BTreeMap::new();
-        // TODO split and parse string into components
-        // load components into hashmap
-        // return rxn with hashmaps constructed
-        Rxn{ inputs: ChemSet::new(inputs), outputs: ChemSet::new(outputs), }
-    }
-}
-*/
-
 
 #[cfg(test)]
 mod tests {
