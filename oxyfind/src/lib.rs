@@ -17,7 +17,7 @@ const OXYGEN: isize = 2;
 enum MoveResult {
     WALL,
     MOVE(RepairDroid),
-    OXYGEN,
+    OXYGEN(RepairDroid),
 }
 
 #[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
@@ -48,6 +48,20 @@ impl RepairDroid {
         droid.proc.execute(&mut droid.res);
         droid
     }
+    fn from_move(&self, dir: isize, new_res: Resources) -> Self {
+        RepairDroid{
+            proc: Processor::new_intcode(),
+            res: new_res,
+            moves: self.moves + 1,
+            point: match dir {
+                NORTH => Point::new(self.point.x, self.point.y-1),
+                SOUTH => Point::new(self.point.x, self.point.y+1),
+                WEST => Point::new(self.point.x-1, self.point.y),
+                EAST => Point::new(self.point.x+1, self.point.y),
+                _ => panic!("bad direction"),
+            },
+        }
+    }
     pub fn moves(&self) -> u32 {
         self.moves
     }
@@ -60,29 +74,21 @@ impl RepairDroid {
         self.proc.resume(&mut new_res);
         match new_res.read_output().expect("no output") {
             WALL => MoveResult::WALL,
-            MOVE => MoveResult::MOVE(RepairDroid{
-                proc: Processor::new_intcode(),
-                res: new_res,
-                moves: self.moves + 1,
-                point: match dir {
-                    NORTH => Point::new(self.point.x, self.point.y-1),
-                    SOUTH => Point::new(self.point.x, self.point.y+1),
-                    WEST => Point::new(self.point.x-1, self.point.y),
-                    EAST => Point::new(self.point.x+1, self.point.y),
-                    _ => panic!("bad direction"),
-                },
-            }),
-            OXYGEN => MoveResult::OXYGEN,
+            MOVE => MoveResult::MOVE(self.from_move(dir, new_res)),
+            OXYGEN => MoveResult::OXYGEN(self.from_move(dir, new_res)),
             _ => panic!("bad intcode program result"),
         }
     }
+    pub fn reset_loc(&mut self) {
+        self.point = Point::new(0, 0);
+        self.moves = 0;
+    }
 }
 
-pub fn min_distance_to_oxygen(mem: Vec<isize>) -> Option<u32> {
-    // BFS
+fn bfs_find_oxygen(d: RepairDroid) -> Option<RepairDroid> {
     let mut nodes_queue = VecDeque::new();
+    nodes_queue.push_back(d);
     let mut points_seen: HashSet<Point> = HashSet::new();
-    nodes_queue.push_back(RepairDroid::new(mem));
     while !nodes_queue.is_empty() {
         let droid = nodes_queue.pop_front().unwrap();
         if !points_seen.contains(droid.point()) {
@@ -93,14 +99,54 @@ pub fn min_distance_to_oxygen(mem: Vec<isize>) -> Option<u32> {
                     MoveResult::MOVE(new_droid) => {
                         nodes_queue.push_back(new_droid);
                     },
-                    MoveResult::OXYGEN => {
-                        return Some(droid.moves() + 1);
+                    MoveResult::OXYGEN(new_droid) => {
+                        return Some(new_droid);
                     }
                 }
             }
         }
     }
     None
+}
+
+fn bfs_farthest_distance(d: RepairDroid) -> u32 {
+    let mut max_dist = 0;
+    let mut nodes_queue = VecDeque::new();
+    nodes_queue.push_back(d);
+    let mut points_seen: HashSet<Point> = HashSet::new();
+    while !nodes_queue.is_empty() {
+        let droid = nodes_queue.pop_front().unwrap();
+        if !points_seen.contains(droid.point()) {
+            points_seen.insert(droid.point().clone());
+            max_dist = if max_dist < droid.moves() { droid.moves() } else { max_dist };
+            for &dir in [NORTH, SOUTH, WEST, EAST].iter() {
+                match droid.move_in_dir(dir) {
+                    MoveResult::WALL => (),
+                    MoveResult::MOVE(new_droid) | MoveResult::OXYGEN(new_droid) => {
+                        nodes_queue.push_back(new_droid);
+                    },
+                }
+            }
+        }
+    }
+    max_dist
+}
+
+pub fn min_distance_to_oxygen(mem: Vec<isize>) -> Option<u32> {
+    if let Some(bot) = bfs_find_oxygen(RepairDroid::new(mem)) {
+        Some(bot.moves())
+    } else {
+        None
+    }
+}
+
+pub fn max_time_to_oxygenation(mem: Vec<isize>) -> Option<u32> {
+    if let Some(mut oxy_droid) = bfs_find_oxygen(RepairDroid::new(mem)) {
+        oxy_droid.reset_loc();
+        Some(bfs_farthest_distance(oxy_droid))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
