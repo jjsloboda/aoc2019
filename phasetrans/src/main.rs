@@ -1,7 +1,7 @@
 use std::{char, io};
 use std::fs::read_to_string;
 
-use phasetrans::calculate_phases_3;
+use phasetrans::calculate_phases;
 
 fn main() -> io::Result<()> {
     let input = read_to_string("input.txt")?;
@@ -10,7 +10,7 @@ fn main() -> io::Result<()> {
         .collect();
 
     // Part 1
-    let post_100 = calculate_phases_3(100, &signal);
+    let post_100 = calculate_phases(100, &signal);
     let first_8 = post_100[..8].iter()
         .map(|d| char::from_digit(*d as u32, 10).expect("bad output"))
         .collect::<String>();
@@ -22,7 +22,7 @@ fn main() -> io::Result<()> {
         big_signal.extend(signal.iter());
     }
     let offset = big_signal[..7].iter().fold(0, |acc, x| acc * 10 + x) as usize;
-    let big_post_100 = calculate_phases_3(100, &big_signal);
+    let big_post_100 = calculate_phases(100, &big_signal);
     let big_8 = big_post_100[offset..offset+8].iter()
         .map(|d| char::from_digit(*d as u32, 10).expect("bad output"))
         .collect::<String>();
