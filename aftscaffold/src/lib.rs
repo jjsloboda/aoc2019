@@ -211,17 +211,6 @@ enum Instruction {
     RIGHT,
     STRAIGHT(i64),
 }
-impl Instruction {
-    pub fn to_ascii(&self) -> Vec<u8> {
-        match self {
-            Instruction::LEFT => vec!['L' as u8],
-            Instruction::RIGHT => vec!['R' as u8],
-            Instruction::STRAIGHT(x) => {
-                x.to_string().chars().map(|d| d as u8).collect()
-            },
-        }
-    }
-}
 
 pub fn intersection_alignment_sum(mem: &Vec<isize>) -> usize {
     let grid = Grid::from_intcode(mem.clone());
