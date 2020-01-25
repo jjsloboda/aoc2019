@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Status {
     READY,
     RUNNING,

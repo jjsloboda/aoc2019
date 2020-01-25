@@ -1,7 +1,7 @@
 use std::io;
 use std::fs::read_to_string;
 
-use aftscaffold::intersection_alignment_sum;
+use aftscaffold::{intersection_alignment_sum, total_space_dust};
 
 fn main() -> io::Result<()> {
     let input = read_to_string("input.txt")?;
@@ -10,11 +10,12 @@ fn main() -> io::Result<()> {
         .collect();
 
     // Part 1
-    let ialign_sum = intersection_alignment_sum(mem);
+    let ialign_sum = intersection_alignment_sum(&mem);
     println!("intersection alignment sum: {}", ialign_sum);
 
     // Part 2
-    // TODO
+    let total = total_space_dust(&mem);
+    println!("total space dust: {}", total);
 
     Ok(())
 }
