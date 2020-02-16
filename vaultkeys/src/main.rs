@@ -5,15 +5,18 @@ use std::io::BufReader;
 use vaultkeys::fewest_steps_for_all_keys;
 
 fn main() -> io::Result<()> {
-    let file = File::open("input.txt")?;
-    let reader = BufReader::new(file);
-
     // Part 1
-    let steps = fewest_steps_for_all_keys(reader);
-    println!("fewest steps for all keys: {}", steps.expect("cannot collect all keys"));
+    let file1 = File::open("input.txt")?;
+    let reader1 = BufReader::new(file1);
+    let steps1 = fewest_steps_for_all_keys(reader1);
+    println!("fewest steps for all keys: {}", steps1.expect("cannot collect all keys"));
 
     // Part 2
-    // TODO
+    let file2 = File::open("input2.txt")?;
+    let reader2 = BufReader::new(file2);
+    let steps2 = fewest_steps_for_all_keys(reader2);
+    println!("fewest steps for all keys with 4 bots: {}",
+        steps2.expect("cannot collect all keys"));
 
     Ok(())
 }

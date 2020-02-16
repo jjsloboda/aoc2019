@@ -4,23 +4,51 @@ use std::io::BufRead;
 use std::fmt;
 use std::rc::Rc;
 
+struct CursorIter {
+    cur_cursor: usize,
+    num_cursors: usize,
+}
+impl CursorIter {
+    pub fn new(num_cursors: usize) -> Self {
+        CursorIter{ cur_cursor: 0, num_cursors: num_cursors }
+    }
+}
+impl Iterator for CursorIter {
+    type Item = char;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cur_cursor < self.num_cursors {
+            self.cur_cursor += 1;
+            Some(('0' as u8 + self.cur_cursor as u8) as char)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug)]
 struct Maze {
     grid: Vec<Vec<char>>,
     symbols: HashMap<char, (usize, usize)>,
     distance_travelled: u64,
     keys_collected: HashSet<char>,
-    pub keys_trail: Vec<char>,
     distance_lookup: Rc<HashMap<(usize, usize, usize, usize), u64>>,
     prereqs: Rc<HashMap<char, HashSet<char>>>,
+    num_cursors: usize,
 }
 impl Maze {
     pub fn from_data<T: BufRead>(data: T) -> Self {
+        let mut num_cursors = 0;
         let mut symbols = HashMap::new();
         let mut grid = Vec::new();
         for (y, line) in data.lines().enumerate() {
             let mut row = Vec::new();
-            for (x, ch) in line.expect("line read failed").trim().chars().enumerate() {
+            for (x, c) in line.expect("line read failed").trim().chars().enumerate() {
+                let ch = if c == '@' {
+                    num_cursors += 1;
+                    ('0' as u8 + num_cursors as u8) as char
+                } else {
+                    c
+                };
                 row.push(ch);
                 if ch != '#' && ch != '.' {
                     symbols.insert(ch, (x, y));
@@ -29,15 +57,15 @@ impl Maze {
             grid.push(row);
         }
         let lookup = Self::build_distance_lookup(&grid, &symbols);
-        let prereqs = Self::build_prereqs(&grid, &symbols);
+        let prereqs = Self::build_prereqs(&grid, &symbols, num_cursors);
         let mut maze = Maze{
             grid: grid,
             symbols: symbols,
             distance_travelled: 0,
             keys_collected: HashSet::new(),
-            keys_trail: Vec::new(),
             distance_lookup: Rc::new(lookup),
             prereqs: Rc::new(prereqs),
+            num_cursors: num_cursors,
         };
         maze.fill_dead_ends_optimizer();
         println!("maze:\n{}", maze);
@@ -106,14 +134,17 @@ impl Maze {
         lookup
     }
     fn build_prereqs(
-        grid: &Vec<Vec<char>>, symbols: &HashMap<char, (usize, usize)>
+        grid: &Vec<Vec<char>>, symbols: &HashMap<char, (usize, usize)>,
+        num_cursors: usize,
     ) -> HashMap<char, HashSet<char>> {
         let mut prereqs = HashMap::new();
-        let (x1, y1) = symbols[&'@'];
-        for (&ch, &(x2, y2)) in symbols.iter().filter(|&(&c, _)| c != '@') {
-            if let Some((_, mut s)) = Self::distance(grid, &(x1, y1), &(x2, y2)) {
-                s.remove(&ch);
-                prereqs.insert(ch, s);
+        for cursor in CursorIter::new(num_cursors) {
+            let (x1, y1) = symbols[&cursor];
+            for (&ch, &(x2, y2)) in symbols.iter().filter(|&(&c, _)| c != cursor) {
+                if let Some((_, mut s)) = Self::distance(grid, &(x1, y1), &(x2, y2)) {
+                    s.remove(&ch);
+                    prereqs.insert(ch, s);
+                }
             }
         }
         prereqs
@@ -127,9 +158,9 @@ impl Maze {
     pub fn distance_travelled(&self) -> u64 {
         self.distance_travelled
     }
-    fn distance_to_key(&self, k: char) -> Option<u64> {
+    fn distance_to_key(&self, cursor: char, k: char) -> Option<u64> {
         if self.prereqs[&k].is_subset(&self.keys_collected) {
-            let (start_x, start_y) = self.symbols[&'@'];
+            let (start_x, start_y) = self.symbols[&cursor];
             let (target_x, target_y) = self.symbols[&k];
             match self.distance_lookup.get(&(start_x, start_y, target_x, target_y)) {
                 Some(&d) => Some(d),
@@ -140,49 +171,54 @@ impl Maze {
         }
     }
     pub fn move_to_key(&self, k: char) -> Option<Self> {
-        if let Some(d) = self.distance_to_key(k) {
-            let (key_x, key_y) = self.symbols[&k];
-            let (cur_x, cur_y) = self.symbols[&'@'];
-            let mut grid = self.grid.clone();
-            grid[key_y][key_x] = '@';
-            grid[cur_y][cur_x] = '.';
-            if let Some((door_x, door_y)) = self.symbols.get(
-                &k.to_uppercase().next().unwrap()) {
-                grid[*door_y][*door_x] = '.';
+        for cursor in CursorIter::new(self.num_cursors) {
+            if let Some(d) = self.distance_to_key(cursor, k) {
+                let (key_x, key_y) = self.symbols[&k];
+                let (cur_x, cur_y) = self.symbols[&cursor];
+                let mut grid = self.grid.clone();
+                grid[key_y][key_x] = cursor;
+                grid[cur_y][cur_x] = '.';
+                if let Some((door_x, door_y)) = self.symbols.get(
+                    &k.to_uppercase().next().unwrap()) {
+                    grid[*door_y][*door_x] = '.';
+                }
+                let mut symbols = self.symbols.clone();
+                symbols.remove(&k);
+                symbols.remove(&k.to_uppercase().next().unwrap());
+                symbols.insert(cursor, (key_x, key_y));
+                let mut keys_collected = self.keys_collected.clone();
+                keys_collected.insert(k);
+                let maze = Maze{
+                    grid: grid,
+                    symbols: symbols,
+                    distance_travelled: self.distance_travelled + d,
+                    keys_collected: keys_collected,
+                    distance_lookup: self.distance_lookup.clone(),
+                    prereqs: self.prereqs.clone(),
+                    num_cursors: self.num_cursors,
+                };
+                return Some(maze)
             }
-            let mut symbols = self.symbols.clone();
-            symbols.remove(&k);
-            symbols.remove(&k.to_uppercase().next().unwrap());
-            symbols.insert('@', (key_x, key_y));
-            let mut keys_collected = self.keys_collected.clone();
-            keys_collected.insert(k);
-            let mut keys_trail = self.keys_trail.clone();
-            keys_trail.push(k);
-            let maze = Maze{
-                grid: grid,
-                symbols: symbols,
-                distance_travelled: self.distance_travelled + d,
-                keys_collected: keys_collected,
-                keys_trail: keys_trail,
-                distance_lookup: self.distance_lookup.clone(),
-                prereqs: self.prereqs.clone(),
-            };
-            Some(maze)
-        } else {
-            None
         }
+        None
     }
     pub fn get_keys(&self) -> Vec<char> {
         self.symbols.keys().filter(|k| k.is_lowercase()).map(|k| *k).collect()
     }
-    pub fn get_cur_loc(&self) -> (usize, usize) {
-        self.get_loc_for_symbol('@')
+    fn get_cur_locs(&self) -> Vec<usize> {
+        let mut locs = Vec::new();
+        for cursor in CursorIter::new(self.num_cursors) {
+            let (x1, y1) = self.get_loc_for_symbol(cursor);
+            locs.push(x1);
+            locs.push(y1);
+        }
+        locs
     }
-    pub fn make_memo_entry_key(&self) -> (usize, usize, BTreeSet<char>) {
-        let (x1, y1) = self.get_cur_loc();
+    pub fn make_memo_entry_key(&self) -> (Vec<usize>, BTreeSet<char>) {
+        let locs = self.get_cur_locs();
         let keys_remaining = self.get_keys().iter().map(|&k| k)
             .collect::<BTreeSet<char>>();
-        (x1, y1, keys_remaining)
+        (locs, keys_remaining)
     }
 }
 impl fmt::Display for Maze {
@@ -198,13 +234,11 @@ impl fmt::Display for Maze {
 }
 
 fn fewest_steps_helper(
-    m: Maze, dist_memo: &mut HashMap<(usize, usize, BTreeSet<char>), Option<u64>>
+    m: Maze, dist_memo: &mut HashMap<(Vec<usize>, BTreeSet<char>), Option<u64>>
 ) -> Option<u64> {
     let memo_key = m.make_memo_entry_key();
     if m.num_keys() == 0 {
-        let dist = m.distance_travelled();
-        println!("trail: {:?}, dist: {}", m.keys_trail, dist);
-        Some(dist)
+        Some(m.distance_travelled())
     } else if dist_memo.contains_key(&memo_key) {
         match dist_memo[&memo_key] {
             Some(d) => Some(m.distance_travelled() + d),
