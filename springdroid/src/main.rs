@@ -1,7 +1,7 @@
 use std::io;
 use std::fs::read_to_string;
 
-use springdroid::run_with_first_prgm;
+use springdroid::{walk_with_first_prgm, run_with_second_prgm};
 
 fn main() -> io::Result<()> {
     let input = read_to_string("input.txt")?;
@@ -10,10 +10,10 @@ fn main() -> io::Result<()> {
         .collect();
 
     // Part 1
-    run_with_first_prgm(&mem);
+    walk_with_first_prgm(&mem);
 
     // Part 2
-    // TODO
+    run_with_second_prgm(&mem);
 
     Ok(())
 }

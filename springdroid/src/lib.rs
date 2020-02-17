@@ -9,19 +9,19 @@ impl<'a> SpringScriptInterpreter<'a> {
     pub fn new(mem: &'a Vec<isize>) -> Self {
         SpringScriptInterpreter{ mem: mem, proc: Processor::new_intcode() }
     }
-    fn write_line(s: &String, res: &mut Resources) {
+    fn write_line(s: &str, res: &mut Resources) {
         for ch in s.chars() {
             res.write_input(ch as isize);
         }
         res.write_input(10);
     }
-    pub fn run_program(&self, prgm: &Vec<String>) -> Result<isize, String> {
+    pub fn exec(&self, prgm: &Vec<&str>, mode: &str) -> Result<isize, String> {
         let mut res = Resources::new(self.mem.clone());
         self.proc.execute(&mut res);
         for line in prgm.iter() {
             Self::write_line(line, &mut res);
         }
-        Self::write_line(&String::from("WALK"), &mut res);
+        Self::write_line(mode, &mut res);
         self.proc.resume(&mut res);
 
         let mut result = Vec::new();
@@ -34,31 +34,53 @@ impl<'a> SpringScriptInterpreter<'a> {
             Err(result.iter().map(|&i| i as u8 as char).collect())
         }
     }
+    pub fn walk_program(&self, prgm: &Vec<&str>) -> Result<isize, String> {
+        self.exec(prgm, "WALK")
+    }
+    pub fn run_program(&self, prgm: &Vec<&str>) -> Result<isize, String> {
+        self.exec(prgm, "RUN")
+    }
 }
 
-fn run_and_dump(mem: &Vec<isize>, prgm: &Vec<String>) {
+fn exec_and_dump(mem: &Vec<isize>, prgm: &Vec<&str>, mode: &str) {
     let ssi = SpringScriptInterpreter::new(mem);
-    match ssi.run_program(prgm) {
+    match ssi.exec(prgm, mode) {
         Ok(v) => println!("success, hull damage is: {}", v),
         Err(e) => println!("failed, output:\n{}", e),
     }
 }
 
-fn run_with_null_prgm(mem: &Vec<isize>) {
-    run_and_dump(mem, &vec![]);
+fn walk_with_null_prgm(mem: &Vec<isize>) {
+    exec_and_dump(mem, &vec![], "WALK");
 }
 
-pub fn run_with_first_prgm(mem: &Vec<isize>) {
-    run_and_dump(mem, &vec![
-        String::from("NOT A T"),
-        String::from("NOT B J"),
-        String::from( "OR J T"),
-        String::from("NOT C J"),
-        String::from( "OR J T"),
-        String::from("NOT D J"),
-        String::from("NOT J J"),
-        String::from("AND T J"),
-    ]);
+pub fn walk_with_first_prgm(mem: &Vec<isize>) {
+    exec_and_dump(mem, &vec![
+        "NOT A T",
+        "NOT B J",
+         "OR J T",
+        "NOT C J",
+         "OR J T",
+        "NOT D J",
+        "NOT J J",
+        "AND T J",
+    ], "WALK");
+}
+
+pub fn run_with_second_prgm(mem: &Vec<isize>) {
+    exec_and_dump(mem, &vec![
+        "NOT A T",
+        "NOT B J",
+         "OR J T",
+        "NOT C J",
+         "OR J T",
+        "NOT D J",
+        "NOT J J",
+        "AND H J",
+        "AND T J",
+        "NOT A T",
+         "OR T J",
+    ], "RUN");
 }
 
 #[cfg(test)]
