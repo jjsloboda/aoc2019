@@ -1,7 +1,7 @@
 use std::io;
 use std::fs::read_to_string;
 
-use tractorbeam::scan_immediate_area;
+use tractorbeam::{scan_immediate_area, scan_for_ship_size};
 
 fn main() -> io::Result<()> {
     let input = read_to_string("input.txt")?;
@@ -14,6 +14,8 @@ fn main() -> io::Result<()> {
     println!("num influenced squares: {}", num_influenced_squares);
 
     // Part 2
+    let coords = scan_for_ship_size(&mem);
+    println!("closest 100x100 ship coords: ({}, {})", coords.0, coords.1);
 
     Ok(())
 }
