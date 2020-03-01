@@ -53,6 +53,32 @@ pub fn shuffle_cards<T: BufRead>(data: T) -> Vec<u64> {
     cards
 }
 
+fn deshuffle_card(card: u128, num_cards: u128, tqn: &Technique) -> u128 {
+    //println!("c: {}, nc: {}", card, num_cards);
+    match tqn {
+        Technique::NewStack => num_cards - card - 1,
+        Technique::Cut(x) => (
+            card as i128 - *x as i128).rem_euclid(num_cards as i128) as u128,
+        Technique::DealInc(x) => (
+            -(card as i128 * *x as i128)).rem_euclid(num_cards as i128) as u128,
+    }
+}
+
+pub fn fully_deshuffle_card<T: BufRead>(data: T,
+        mut card: u128, num_cards: u128, iters: u128) -> u128 {
+    let mut tqns = load_techniques(data);
+    tqns.reverse();
+    for i in 0..iters {
+        if card == 2020 {
+            println!("i: {} c: {}", i, card);
+        }
+        for tqn in tqns.iter() {
+            card = deshuffle_card(card, num_cards, tqn);
+        }
+    }
+    card
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -120,5 +146,52 @@ mod tests {
             shuffle(&mut cards, tqn);
         }
         assert_eq!(vec![9, 2, 5, 8, 1, 4, 7, 0, 3, 6], cards);
+    }
+
+    #[test]
+    fn deshuffle_new_stack() {
+        use super::{deshuffle_card, Technique};
+        assert_eq!(6, deshuffle_card(3, 10, &Technique::NewStack));
+        assert_eq!(3, deshuffle_card(6, 10, &Technique::NewStack));
+        assert_eq!(0, deshuffle_card(9, 10, &Technique::NewStack));
+        assert_eq!(9, deshuffle_card(0, 10, &Technique::NewStack));
+    }
+
+    #[test]
+    fn deshuffle_cut() {
+        use super::{deshuffle_card, Technique};
+        assert_eq!(0, deshuffle_card(3, 10, &Technique::Cut(3)));
+        assert_eq!(1, deshuffle_card(4, 10, &Technique::Cut(3)));
+        assert_eq!(2, deshuffle_card(5, 10, &Technique::Cut(3)));
+        assert_eq!(3, deshuffle_card(6, 10, &Technique::Cut(3)));
+        assert_eq!(4, deshuffle_card(7, 10, &Technique::Cut(3)));
+        assert_eq!(5, deshuffle_card(8, 10, &Technique::Cut(3)));
+        assert_eq!(6, deshuffle_card(9, 10, &Technique::Cut(3)));
+        assert_eq!(7, deshuffle_card(0, 10, &Technique::Cut(3)));
+        assert_eq!(8, deshuffle_card(1, 10, &Technique::Cut(3)));
+        assert_eq!(9, deshuffle_card(2, 10, &Technique::Cut(3)));
+
+        assert_eq!(0, deshuffle_card(3, 7, &Technique::Cut(-4)));
+        assert_eq!(1, deshuffle_card(4, 7, &Technique::Cut(-4)));
+        assert_eq!(2, deshuffle_card(5, 7, &Technique::Cut(-4)));
+        assert_eq!(3, deshuffle_card(6, 7, &Technique::Cut(-4)));
+        assert_eq!(4, deshuffle_card(0, 7, &Technique::Cut(-4)));
+        assert_eq!(5, deshuffle_card(1, 7, &Technique::Cut(-4)));
+        assert_eq!(6, deshuffle_card(2, 7, &Technique::Cut(-4)));
+    }
+
+    #[test]
+    fn deshuffle_deal_inc() {
+        use super::{deshuffle_card, Technique};
+        assert_eq!(0, deshuffle_card(0, 10, &Technique::DealInc(7)));
+        assert_eq!(1, deshuffle_card(7, 10, &Technique::DealInc(7)));
+        assert_eq!(2, deshuffle_card(4, 10, &Technique::DealInc(7)));
+        assert_eq!(3, deshuffle_card(1, 10, &Technique::DealInc(7)));
+        assert_eq!(4, deshuffle_card(8, 10, &Technique::DealInc(7)));
+        assert_eq!(5, deshuffle_card(5, 10, &Technique::DealInc(7)));
+        assert_eq!(6, deshuffle_card(2, 10, &Technique::DealInc(7)));
+        assert_eq!(7, deshuffle_card(9, 10, &Technique::DealInc(7)));
+        assert_eq!(8, deshuffle_card(6, 10, &Technique::DealInc(7)));
+        assert_eq!(9, deshuffle_card(3, 10, &Technique::DealInc(7)));
     }
 }
