@@ -9,4 +9,3 @@ edition = "2018"
 [dependencies]
 modinverse = "0.1.1"
 mod_exp = "1.0.1"
-num = "0.2.1"

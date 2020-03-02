@@ -2,26 +2,17 @@ use std::fs::File;
 use std::io;
 use std::io::BufReader;
 
-use slamshuffle::{fully_shuffle_card, fully_deshuffle_card, shuffle_cards};
+use slamshuffle::{fully_shuffle_card, fully_deshuffle_card};
 
 fn main() -> io::Result<()> {
 
     // Part 1
     let file1 = File::open("input.txt")?;
     let reader1 = BufReader::new(file1);
-    let cards = shuffle_cards(reader1);
-    for i in 0..cards.len() {
-        if cards[i] == 2019 {
-            println!("card 2019 is at position {}", i);
-            break;
-        }
-    }
+    let card1 = fully_shuffle_card(reader1, 2019, 10007, 1);
+    println!("card 2019 is at position {}", card1);
 
     // Sanity check
-    let file3 = File::open("input.txt")?;
-    let reader3 = BufReader::new(file3);
-    let c1 = fully_shuffle_card(reader3, 2019, 10007, 1);
-    println!("sanity check: card at 2019 shuffles to {}", c1);
     let file4 = File::open("input.txt")?;
     let reader4 = BufReader::new(file4);
     let c2 = fully_deshuffle_card(reader4, 6526, 10007, 1);
