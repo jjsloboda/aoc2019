@@ -1,5 +1,7 @@
 use std::io::BufRead;
 use modinverse::modinverse;
+use mod_exp::mod_exp;
+use num::{BigInt, pow::pow, cast::ToPrimitive};
 
 enum Technique {
     NewStack,
@@ -79,6 +81,7 @@ pub fn naive_deshuffle_card<T: BufRead>(data: T,
     card
 }
 
+#[derive(Debug)]
 struct Xform {
     a: i128,
     b: i128,
@@ -123,30 +126,54 @@ impl Xform {
         }
         xf
     }
+    pub fn compose(&self, n: usize) -> Self {
+        /*
+        let (ba, bb) = (BigInt::from(self.a), BigInt::from(self.b));
+        let a_n = BigInt::from(mod_exp(self.a, n as i128, self.m));
+        let b_denom
+        let b: BigInt = ((bb.clone() - (bb * a_n.clone())) / (BigInt::from(1) - ba)) % (self.m as u128);
+        let a = (a_n % (self.m as u128)).to_i64().unwrap() as i128;
+        Xform{ a: a, b: b.to_i64().unwrap() as i128, m: self.m, }
+        */
+        let a_n = mod_exp(self.a, n as i128, self.m);
+        let b_denom_inv = modinverse(1 - self.a, self.m).expect("no inv");
+        let b_numer = (self.b * (1 - a_n)).rem_euclid(self.m);
+        let b = b_numer * b_denom_inv;
+        Xform{ a: a_n, b: b, m: self.m, }
+    }
     pub fn apply_to(&self, c: i128) -> i128 {
-        self.a * c + self.b
+        (self.a * c + self.b).rem_euclid(self.m)
     }
 }
 
 pub fn fully_shuffle_card<T: BufRead>(data: T,
-        mut card: u128, num_cards: u128, iters: u128) -> u128 {
+        card: u128, num_cards: u128, iters: u128) -> u128 {
     let tqns = load_techniques(data);
     let xf = Xform::from_tqns_fwd(num_cards as i128, &tqns);
+    let mut c = card;
     for _ in 0..iters {
-        card = xf.apply_to(card as i128).rem_euclid(num_cards as i128) as u128
+        c = xf.apply_to(c as i128).rem_euclid(num_cards as i128) as u128
     }
-    card
+    c
 }
 
 pub fn fully_deshuffle_card<T: BufRead>(data: T,
-        mut card: u128, num_cards: u128, iters: u128) -> u128 {
+        card: u128, num_cards: u128, iters: usize) -> u128 {
     let mut tqns = load_techniques(data);
     tqns.reverse();
     let xf = Xform::from_tqns_rev(num_cards as i128, &tqns);
+    println!("xf is {:?}", xf);
+    /*
+    let mut c = card;
     for _ in 0..iters {
-        card = xf.apply_to(card as i128).rem_euclid(num_cards as i128) as u128
+        c = xf.apply_to(c as i128).rem_euclid(num_cards as i128) as u128
     }
-    card
+    //card
+    println!("iter card: {}", c);
+    */
+    let xfc = xf.compose(iters);
+    println!("xfc is {:?}", xfc);
+    xfc.apply_to(card as i128).rem_euclid(num_cards as i128) as u128
 }
 
 #[cfg(test)]

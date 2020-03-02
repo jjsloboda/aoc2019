@@ -30,7 +30,7 @@ fn main() -> io::Result<()> {
     // Part 2
     let file2 = File::open("input.txt")?;
     let reader2 = BufReader::new(file2);
-    let card = fully_deshuffle_card(reader2, 2020, 119315717514047, 10000000/*101741582076661*/);
+    let card = fully_deshuffle_card(reader2, 2020, 119315717514047, 101741582076661);
     println!("card in position 2020 is {}", card);
 
     Ok(())
