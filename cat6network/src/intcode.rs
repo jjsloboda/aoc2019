@@ -62,6 +62,9 @@ impl Resources {
     pub fn write_input(&mut self, i: isize) {
         self.input.push_back(i);
     }
+    pub fn input_len(&self) -> usize {
+        self.input.len()
+    }
     pub fn read_output(&mut self) -> Option<isize> {
         self.output.pop_front()
     }

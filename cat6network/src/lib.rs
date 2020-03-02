@@ -1,11 +1,11 @@
-
-
 mod intcode;
 use intcode::{Processor, Resources};
 
 struct Network {
     nodes: Vec<Resources>,
     proc: Processor,
+    nat_packet: (isize, isize),
+    last_y_delivered: isize,
 }
 impl Network {
     pub fn new(mem: &Vec<isize>) -> Self {
@@ -17,7 +17,10 @@ impl Network {
             proc.execute(&mut res);
             nodes.push(res);
         }
-        Network{ nodes: nodes, proc: proc, }
+        Network{
+            nodes: nodes, proc: proc, nat_packet: (0, 0),
+            last_y_delivered: 0,
+        }
     }
     fn read_packet(&mut self, i: usize) -> Option<(isize, isize, isize)> {
         let res = &mut self.nodes[i];
@@ -31,29 +34,44 @@ impl Network {
         res.write_input(x);
         res.write_input(y);
     }
-    pub fn loop_once(&mut self) -> Result<(), (isize, isize, isize)> {
+    pub fn loop_once(&mut self) -> Result<(), isize> {
+        let mut idle = true;
         for i in 0..self.nodes.len() {
-            self.nodes[i].write_input(-1);
+            if self.nodes[i].input_len() == 0 {
+                self.nodes[i].write_input(-1);
+            } else {
+                idle = false;
+            }
             self.proc.resume(&mut self.nodes[i]);
             while let Some((dst, x, y)) = self.read_packet(i) {
-                if dst >= 50 {
-                    return Err((dst, x, y));
+                idle = false;
+                if dst == 255 {
+                    self.nat_packet = (x, y);
+                } else {
+                    self.send_packet(dst, x, y);
                 }
-                self.send_packet(dst, x, y);
             }
+        }
+        if idle {
+            let (x, y) = self.nat_packet;
+            if y == self.last_y_delivered {
+                return Err(y);
+            }
+            self.send_packet(0, x, y);
+            self.last_y_delivered = y;
         }
         Ok(())
     }
-    pub fn loop_until_err(&mut self) -> Result<(), (isize, isize, isize)> {
+    pub fn loop_until_err(&mut self) -> Result<(), isize> {
         loop {
             self.loop_once()?;
         }
     }
 }
 
-pub fn y_val_of_255_packet(mem: &Vec<isize>) -> isize {
+pub fn y_val_of_err_packet(mem: &Vec<isize>) -> isize {
     let mut net = Network::new(&mem);
-    if let Err((_, _, y)) = net.loop_until_err() {
+    if let Err(y) = net.loop_until_err() {
         y
     } else {
         panic!("expected err");
