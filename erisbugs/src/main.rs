@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io;
 use std::io::BufReader;
 
-use erisbugs::{load_grid, find_first_repeated};
+use erisbugs::{load_grid, find_first_repeated, find_num_bugs};
 
 fn main() -> io::Result<()> {
     let file = File::open("input.txt")?;
@@ -14,6 +14,9 @@ fn main() -> io::Result<()> {
     println!("first repeated pattern: {}", first_rep);
 
     // Part 2
+    let mins = 200;
+    let num_bugs = find_num_bugs(&grid, mins);
+    println!("num bugs after {} minutes: {}", mins, num_bugs);
 
     Ok(())
 }
