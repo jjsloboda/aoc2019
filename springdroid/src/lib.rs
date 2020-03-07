@@ -34,12 +34,6 @@ impl<'a> SpringScriptInterpreter<'a> {
             Err(result.iter().map(|&i| i as u8 as char).collect())
         }
     }
-    pub fn walk_program(&self, prgm: &Vec<&str>) -> Result<isize, String> {
-        self.exec(prgm, "WALK")
-    }
-    pub fn run_program(&self, prgm: &Vec<&str>) -> Result<isize, String> {
-        self.exec(prgm, "RUN")
-    }
 }
 
 fn exec_and_dump(mem: &Vec<isize>, prgm: &Vec<&str>, mode: &str) {
@@ -48,10 +42,6 @@ fn exec_and_dump(mem: &Vec<isize>, prgm: &Vec<&str>, mode: &str) {
         Ok(v) => println!("success, hull damage is: {}", v),
         Err(e) => println!("failed, output:\n{}", e),
     }
-}
-
-fn walk_with_null_prgm(mem: &Vec<isize>) {
-    exec_and_dump(mem, &vec![], "WALK");
 }
 
 pub fn walk_with_first_prgm(mem: &Vec<isize>) {
